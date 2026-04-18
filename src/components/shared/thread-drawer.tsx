@@ -13,6 +13,7 @@ import type { UpdateMutationPayload } from '../../lib/mutations';
 import type { BeadIssue } from '../../lib/types';
 import { ThreadView, type ThreadItem } from './thread-view';
 import { useResponsive } from '../../hooks/use-responsive';
+import { DispatchButton } from './dispatch-button';
 
 interface ThreadDrawerProps {
   isOpen: boolean;
@@ -284,7 +285,7 @@ export function ThreadDrawer({
             <Badge className="rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-bg-panel)] text-[var(--ui-text-muted)]">{issue.issue_type}</Badge>
             {issue.assignee ? <Badge className="rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-bg-panel)] text-[var(--ui-text-muted)]">@{issue.assignee}</Badge> : null}
           </div>
-          <div className="pt-1">
+          <div className="flex flex-wrap items-start gap-2 pt-1">
             <Button
               onClick={() => setEditMode(true)}
               disabled={!canEdit}
@@ -292,6 +293,7 @@ export function ThreadDrawer({
             >
               <Edit3 className="mr-2 h-3.5 w-3.5" /> Edit task
             </Button>
+            <DispatchButton bead={issue} />
           </div>
         </div>
       ) : (
