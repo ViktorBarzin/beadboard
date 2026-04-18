@@ -58,6 +58,7 @@ function normalizeIssue(raw: ParseableBeadIssue): BeadIssue {
     due_at: typeof raw.due_at === 'string' ? raw.due_at : null,
     estimated_minutes: typeof raw.estimated_minutes === 'number' ? raw.estimated_minutes : null,
     external_ref: typeof raw.external_ref === 'string' ? raw.external_ref : null,
+    acceptance_criteria: typeof raw.acceptance_criteria === 'string' ? raw.acceptance_criteria : null,
     metadata: typeof raw.metadata === 'object' && raw.metadata !== null ? (raw.metadata as Record<string, unknown>) : {},
   };
 }

@@ -8,6 +8,7 @@ interface IssueRow extends RowDataPacket {
   id: string;
   title: string;
   description: string | null;
+  acceptance_criteria: string | null;
   status: string;
   priority: number;
   issue_type: string;
@@ -62,6 +63,7 @@ function normalizeRow(row: IssueRow, deps: BeadDependency[]): BeadIssue {
     estimated_minutes: typeof row.estimated_minutes === 'number' ? row.estimated_minutes : null,
     external_ref: row.external_ref ?? null,
     comments_count: (row.comments_count ?? 0) as number,
+    acceptance_criteria: row.acceptance_criteria ?? null,
     metadata: row.metadata ?? {},
   };
 }

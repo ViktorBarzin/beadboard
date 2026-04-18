@@ -67,6 +67,8 @@ export function UnifiedShell({
     priority: 'all',
     preset: 'all',
     hideClosed: true,
+    hideNoAcceptance: true,
+    hideShortDescription: true,
   });
 
   const [actor, setActor] = useState<string>('');

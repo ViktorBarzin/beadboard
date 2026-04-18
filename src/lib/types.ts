@@ -58,6 +58,8 @@ export interface BeadIssue {
   agentTypeId?: string;
   /** Which specific agent instance is assigned (if running) */
   agentInstanceId?: string;
+  /** Free-form acceptance criteria captured by bd create --acceptance */
+  acceptance_criteria?: string | null;
   metadata: Record<string, unknown>;
 }
 

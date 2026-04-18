@@ -51,6 +51,8 @@ const views = [
   { id: 'graph', label: 'Graph' },
 ] as const;
 
+const SHORT_DESCRIPTION_MIN_LENGTH = 200;
+
 function isTaskMatch(task: BeadIssue, filters: LeftPanelFilters): boolean {
   if (filters.query.trim()) {
     const query = filters.query.toLowerCase();
@@ -79,6 +81,10 @@ function isTaskMatch(task: BeadIssue, filters: LeftPanelFilters): boolean {
   if (filters.hideClosed) {
     if (task.status === 'closed' || task.status === 'tombstone') return false;
   }
+
+  const isEpic = task.issue_type === 'epic';
+  if (!isEpic && filters.hideNoAcceptance && !task.acceptance_criteria?.trim()) return false;
+  if (!isEpic && filters.hideShortDescription && (task.description ?? '').length < SHORT_DESCRIPTION_MIN_LENGTH) return false;
 
   return true;
 }
@@ -321,6 +327,26 @@ export function LeftPanel({
               >
                 Hide Closed
               </button>
+              <label className="flex items-center gap-2 text-[10px] font-medium text-[var(--text-tertiary)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.hideNoAcceptance}
+                  onChange={(event) => onFiltersChange({ ...filters, hideNoAcceptance: event.target.checked })}
+                  className="h-3 w-3 rounded border-[var(--border-subtle)] bg-[var(--surface-quaternary)]"
+                  aria-label="Hide tasks without acceptance criteria"
+                />
+                <span>Hide tasks without acceptance criteria</span>
+              </label>
+              <label className="flex items-center gap-2 text-[10px] font-medium text-[var(--text-tertiary)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.hideShortDescription}
+                  onChange={(event) => onFiltersChange({ ...filters, hideShortDescription: event.target.checked })}
+                  className="h-3 w-3 rounded border-[var(--border-subtle)] bg-[var(--surface-quaternary)]"
+                  aria-label="Hide tasks with short description"
+                />
+                <span>Hide tasks with short description (&lt;200 chars)</span>
+              </label>
             </div>
 
             <div className="mt-2 flex items-center gap-1 rounded-xl bg-[var(--surface-tertiary)] p-1 border border-[var(--border-subtle)]">

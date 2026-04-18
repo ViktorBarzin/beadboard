@@ -8,8 +8,18 @@ export type PanelState = 'open' | 'closed';
 export type DrawerState = 'open' | 'closed';
 export type GraphTabType = 'flow' | 'overview';
 export type LeftSidebarMode = 'epics' | 'orchestrator';
-export type LeftPanelStatusFilter = 'all' | 'ready' | 'in_progress' | 'blocked' | 'deferred' | 'done';export type LeftPanelPriorityFilter = 'all' | 'P0' | 'P1' | 'P2' | 'P3' | 'P4';export type LeftPanelPresetFilter = 'all' | 'active' | 'blocked_agents';export interface LeftPanelFilters {  status: LeftPanelStatusFilter;  priority: LeftPanelPriorityFilter;  preset: LeftPanelPresetFilter;  hideClosed: boolean;
-  query: string;}
+export type LeftPanelStatusFilter = 'all' | 'ready' | 'in_progress' | 'blocked' | 'deferred' | 'done';
+export type LeftPanelPriorityFilter = 'all' | 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+export type LeftPanelPresetFilter = 'all' | 'active' | 'blocked_agents';
+export interface LeftPanelFilters {
+  status: LeftPanelStatusFilter;
+  priority: LeftPanelPriorityFilter;
+  preset: LeftPanelPresetFilter;
+  hideClosed: boolean;
+  query: string;
+  hideNoAcceptance: boolean;
+  hideShortDescription: boolean;
+}
 
 export interface UrlState {
   view: ViewType;
