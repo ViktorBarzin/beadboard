@@ -12,20 +12,10 @@ steps:
   - name: build-and-push
     image: woodpeckerci/plugin-docker-buildx
     settings:
-      # Dual-push during the Forgejo registry consolidation bake. After
-      # ≥14 days clean, registry.viktorbarzin.me drops out (Phase 4).
-      # GHA build-and-deploy.yml is .disabled until rollback — see
-      # docs/plans/2026-05-07-forgejo-registry-consolidation-plan.md
-      # § "Risk register" (clobber-during-bake mitigation).
+      # Phase 4 of forgejo-registry-consolidation 2026-05-07 — Forgejo only.
       repo:
-        - registry.viktorbarzin.me:5050/beadboard
         - forgejo.viktorbarzin.me/viktor/beadboard
       logins:
-        - registry: registry.viktorbarzin.me:5050
-          username:
-            from_secret: registry_user
-          password:
-            from_secret: registry_password
         - registry: forgejo.viktorbarzin.me
           username:
             from_secret: forgejo_user
@@ -36,9 +26,3 @@ steps:
       auto_tag: true
       platforms:
         - linux/amd64
-
-# Deploy step intentionally omitted during Phase 1 dual-push bake —
-# pods continue pulling from registry.viktorbarzin.me until Phase 3
-# (`infra/stacks/beads-server/main.tf` `image=` flip). Re-add a
-# kubectl-set-image step here at Phase 3 if desired, or keep the
-# Terraform-driven flip pattern instead.
