@@ -1,7 +1,11 @@
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { GET } from '../../src/app/api/agent-status/route';
+import { resetAgentStatusCache } from '../../src/lib/agent-status';
+
+// The status is cached for 2s; start every test from an empty cache.
+beforeEach(() => resetAgentStatusCache());
 
 type FetchFn = typeof fetch;
 
@@ -32,8 +36,6 @@ test('GET returns {busy:false} when CLAUDE_AGENT_SERVICE_URL is unset', async ()
     await withFetchStub(async () => {
       throw new Error('fetch should not be called when URL is unset');
     }, async () => {
-      // Bust the module cache so cached snapshots from prior tests do not leak.
-      await import(`../../src/app/api/agent-status/route?url-unset=${Date.now()}`);
       const response = await GET();
       const body = await response.json();
       assert.equal(response.status, 200);
@@ -54,8 +56,7 @@ test('GET proxies busy=true when /health returns busy=true', async () => {
     });
 
     await withFetchStub(stub, async () => {
-      const mod = await import(`../../src/app/api/agent-status/route?busy-true=${Date.now()}`) as { GET: typeof GET };
-      const response = await mod.GET();
+      const response = await GET();
       const body = await response.json();
       assert.equal(response.status, 200);
       assert.equal(body.busy, true);
@@ -72,8 +73,7 @@ test('GET returns busy=true when /health returns HTTP 503', async () => {
     const stub: FetchFn = async () => new Response('busy', { status: 503 });
 
     await withFetchStub(stub, async () => {
-      const mod = await import(`../../src/app/api/agent-status/route?busy-503=${Date.now()}`) as { GET: typeof GET };
-      const response = await mod.GET();
+      const response = await GET();
       const body = await response.json();
       assert.equal(response.status, 200);
       assert.equal(body.busy, true);
