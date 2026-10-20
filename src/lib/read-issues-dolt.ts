@@ -28,10 +28,30 @@ interface IssueRow extends RowDataPacket {
   comments_count: number | null;
 }
 
+// bd up to schema v53 keeps the target in `depends_on_id`; bd 1.3 (schema v66)
+// splits it into one nullable column per target kind. `SELECT *` reads both.
 interface DepRow extends RowDataPacket {
   issue_id: string;
-  depends_on_id: string;
   type: string;
+  depends_on_id?: string | null;
+  depends_on_issue_id?: string | null;
+  depends_on_wisp_id?: string | null;
+  depends_on_external?: string | null;
+}
+
+const DEPENDENCY_TARGET_COLUMNS = [
+  'depends_on_id',
+  'depends_on_issue_id',
+  'depends_on_wisp_id',
+  'depends_on_external',
+] as const;
+
+export function dependencyTarget(row: Partial<Record<(typeof DEPENDENCY_TARGET_COLUMNS)[number], unknown>>): string | null {
+  for (const column of DEPENDENCY_TARGET_COLUMNS) {
+    const value = row[column];
+    if (typeof value === 'string' && value !== '') return value;
+  }
+  return null;
 }
 
 function toIsoString(val: Date | string | null | undefined): string | null {
@@ -100,16 +120,18 @@ export async function readIssuesViaDolt(
 
     // Query 2: All dependencies in one shot
     const [depRows] = await pool.execute<DepRow[]>(
-      `SELECT issue_id, depends_on_id, type FROM dependencies`
+      `SELECT * FROM dependencies`
     );
 
     // Build issue_id → BeadDependency[] lookup
     const depsMap = new Map<string, BeadDependency[]>();
     for (const dep of depRows) {
+      const target = dependencyTarget(dep);
+      if (target === null) continue;
       const depType: BeadDependency['type'] =
         dep.type === 'parent-child' ? 'parent' : (dep.type as BeadDependency['type']);
       const list = depsMap.get(dep.issue_id) ?? [];
-      list.push({ type: depType, target: dep.depends_on_id });
+      list.push({ type: depType, target });
       depsMap.set(dep.issue_id, list);
     }
 
