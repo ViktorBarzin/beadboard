@@ -103,24 +103,27 @@ describe('URL State Integration - bb-ui2.22', () => {
     });
   });
 
-  describe('Valid URL Patterns - Activity View', () => {
-    it('/?view=activity - activity view default', () => {
+  // The activity view was folded into the shell in d335e5b (ViewType is now
+  // social | graph). Links saved before then still carry view=activity; they
+  // open the default view and keep their agent and swarm filters.
+  describe('Legacy Activity View URLs', () => {
+    it('/?view=activity - falls back to the social view', () => {
       const sp = createMockSearchParams({ view: 'activity' });
       const state = parseUrlState(sp);
-      assert.strictEqual(state.view, 'activity');
+      assert.strictEqual(state.view, 'social');
     });
 
-    it('/?view=activity&agent=bb-silver-castle - filtered by agent', () => {
+    it('/?view=activity&agent=bb-silver-castle - keeps the agent filter', () => {
       const sp = createMockSearchParams({ view: 'activity', agent: 'bb-silver-castle' });
       const state = parseUrlState(sp);
-      assert.strictEqual(state.view, 'activity');
+      assert.strictEqual(state.view, 'social');
       assert.strictEqual(state.agentId, 'bb-silver-castle');
     });
 
-    it('/?view=activity&swarm=bb-buff - filtered by swarm', () => {
+    it('/?view=activity&swarm=bb-buff - keeps the swarm filter', () => {
       const sp = createMockSearchParams({ view: 'activity', swarm: 'bb-buff' });
       const state = parseUrlState(sp);
-      assert.strictEqual(state.view, 'activity');
+      assert.strictEqual(state.view, 'social');
       assert.strictEqual(state.swarmId, 'bb-buff');
     });
   });
