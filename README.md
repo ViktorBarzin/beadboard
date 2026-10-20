@@ -41,9 +41,17 @@ beadboard --version
 bd --version
 ```
 
-**Alternative:** POSIX install script (Linux/macOS):
+**Alternative:** install scripts, run from the clone. They put `bb` and `beadboard` shims in `~/.beadboard/bin` and record the clone in `~/.beadboard/runtime/current.json`:
 ```bash
-bash ./install/install.sh    # installs bb + beadboard shims to ~/.beadboard/bin
+bash ./install/install.sh                                      # Linux/macOS
+powershell -ExecutionPolicy Bypass -File .\install\install.ps1   # Windows
+```
+
+The launcher then manages the dashboard:
+```bash
+beadboard start    # start the dashboard (add --dolt to use Dolt)
+beadboard open     # open it in the browser
+beadboard status   # show whether it is running
 ```
 ---
 Or just tell your agent:
