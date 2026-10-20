@@ -16,6 +16,8 @@ artifacts/
 
 # beads socket lock
 .beads/bd.sock.startlock
+# bd 1.3 gate locks, written next to .beads and inside it on every run
+*.gate.lock*
 
 # beadboard runtime artifacts
 .beadboard/
