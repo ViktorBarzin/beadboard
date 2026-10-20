@@ -14,7 +14,6 @@ if (process.platform === 'win32') {
 } else {
 
 const execFileAsync = promisify(execFile);
-const repoRoot = path.resolve('.');
 const shimPath = path.resolve('skills/beadboard-driver/scripts/bb-mail-shim.mjs');
 
 async function withTempDir(run) {
@@ -55,14 +54,25 @@ async function writeBbProxy(binDir) {
   }
 }
 
-async function runBb(args, env) {
+// The agents and messages live in a throwaway bd workspace, not in the
+// repository's own .beads (which points at a Dolt server the test does not own).
+// bd's embedded Dolt keeps its config under $HOME, so init runs with the same
+// HOME as every later bd call.
+async function initProject(root, env) {
+  const projectDir = path.join(root, 'project');
+  await fs.mkdir(projectDir, { recursive: true });
+  await execFileAsync('bd', ['init', '--prefix', 'bb', '--force'], { cwd: projectDir, env });
+  return projectDir;
+}
+
+async function runBb(args, env, cwd) {
   // Run bb CLI via the proxy script (handles Windows/Unix differences)
   // On Windows, .cmd files require shell: true when using execFile
   const bbCmd = process.platform === 'win32' ? 'bb.cmd' : 'bb';
   // Extract binDir from PATH
   const binDir = env.PATH.split(path.delimiter)[0];
   const bbPath = path.join(binDir, bbCmd);
-  const options = { cwd: repoRoot, env };
+  const options = { cwd, env };
   if (process.platform === 'win32') {
     options.shell = true;
   }
@@ -85,12 +95,14 @@ test('bb-mail integration contract: send -> inbox -> read -> ack lifecycle', asy
       HOME: homeDir,
       USERPROFILE: homeDir,
     };
+    await fs.mkdir(homeDir, { recursive: true });
+    const projectDir = await initProject(root, baseEnv);
 
-    const senderRegRaw = await runBb(['agent', 'register', '--name', sender, '--role', 'ui', '--json'], baseEnv);
+    const senderRegRaw = await runBb(['agent', 'register', '--name', sender, '--role', 'ui', '--json'], baseEnv, projectDir);
     const senderReg = JSON.parse(senderRegRaw);
     assert.equal(senderReg.ok, true);
 
-    const recipientRegRaw = await runBb(['agent', 'register', '--name', recipient, '--role', 'graph', '--json'], baseEnv);
+    const recipientRegRaw = await runBb(['agent', 'register', '--name', recipient, '--role', 'graph', '--json'], baseEnv, projectDir);
     const recipientReg = JSON.parse(recipientRegRaw);
     assert.equal(recipientReg.ok, true);
 
@@ -111,13 +123,13 @@ test('bb-mail integration contract: send -> inbox -> read -> ack lifecycle', asy
         'Please validate and ack.',
       ],
       {
-        cwd: repoRoot,
+        cwd: projectDir,
         env: { ...baseEnv, BB_AGENT: sender },
       },
     );
 
     const inboxResult = await execFileAsync(process.execPath, [shimPath, 'inbox', '--state', 'unread', '--limit', '10'], {
-      cwd: repoRoot,
+      cwd: projectDir,
       env: { ...baseEnv, BB_AGENT: recipient },
     });
 
@@ -126,16 +138,16 @@ test('bb-mail integration contract: send -> inbox -> read -> ack lifecycle', asy
     const messageId = messageMatch[1];
 
     await execFileAsync(process.execPath, [shimPath, 'read', messageId], {
-      cwd: repoRoot,
+      cwd: projectDir,
       env: { ...baseEnv, BB_AGENT: recipient },
     });
 
     await execFileAsync(process.execPath, [shimPath, 'ack', messageId], {
-      cwd: repoRoot,
+      cwd: projectDir,
       env: { ...baseEnv, BB_AGENT: recipient },
     });
 
-    const ackedRaw = await runBb(['agent', 'inbox', '--agent', recipient, '--state', 'acked', '--limit', '25', '--json'], baseEnv);
+    const ackedRaw = await runBb(['agent', 'inbox', '--agent', recipient, '--state', 'acked', '--limit', '25', '--json'], baseEnv, projectDir);
     const acked = JSON.parse(ackedRaw);
 
     assert.equal(acked.ok, true);

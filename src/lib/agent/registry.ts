@@ -42,6 +42,43 @@ function setCachedAgent(beadId: string, data: AgentRecord | null): void {
   agentCache.set(beadId, { data, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
+// An agent is an ordinary bead labelled gt:agent whose state lives in the
+// bead's metadata. bd used to provide `bd agent show|state`; that command is
+// not in bd 1.0 or later, so the registry builds on show/create/update.
+const AGENT_LABEL = 'gt:agent';
+const AGENT_STATE_KEY = 'agent_state';
+
+async function writeAgentState(
+  beadId: string,
+  state: AgentZfcState,
+  projectRoot: string,
+  createAs: { title: string } | null,
+): Promise<{ success: boolean; error: string | null }> {
+  agentCache.delete(beadId);
+  const exists = (await runBdCommand({ projectRoot, args: ['show', beadId, '--json'] })).success;
+  if (!exists && !createAs) {
+    return { success: false, error: 'Agent is not registered.' };
+  }
+  const result = exists
+    ? await runBdCommand({
+        projectRoot,
+        args: ['update', beadId, '--set-metadata', `${AGENT_STATE_KEY}=${state}`, '--json'],
+      })
+    : await runBdCommand({
+        projectRoot,
+        args: [
+          'create', createAs!.title,
+          '--id', beadId,
+          '--force', // the bb- agent ids need not match the workspace prefix
+          '--labels', AGENT_LABEL,
+          '--metadata', JSON.stringify({ [AGENT_STATE_KEY]: state }),
+          '--json',
+        ],
+      });
+  agentCache.delete(beadId);
+  return { success: result.success, error: result.error };
+}
+
 function toBeadId(name: string): string {
   const trimmed = name.trim();
   if (trimmed.startsWith('bb-')) return trimmed;
@@ -90,14 +127,15 @@ async function callBdAgentShow(beadId: string, projectRoot: string): Promise<Age
   
   const showResult = await runBdCommand({
     projectRoot,
-    args: ['agent', 'show', beadId, '--json'],
+    args: ['show', beadId, '--json'],
   });
 
   let record: AgentRecord | null = null;
   if (showResult.success) {
     try {
       const bdAgent = extractJson(showResult.stdout);
-      record = mapBdAgentToRecord(bdAgent);
+      const labels: unknown = bdAgent.labels;
+      record = Array.isArray(labels) && labels.includes(AGENT_LABEL) ? mapBdAgentToRecord(bdAgent) : null;
     } catch {
       record = null;
     }
@@ -179,9 +217,9 @@ function mapBdAgentToRecord(bdAgent: any): AgentRecord {
     agent_id: fromBeadId(bdAgent.id),
     display_name: bdAgent.title?.replace(/^Agent: /, '') || fromBeadId(bdAgent.id),
     role,
-    status: bdAgent.agent_state || 'idle',
+    status: bdAgent.metadata?.[AGENT_STATE_KEY] || bdAgent.agent_state || 'idle',
     created_at: bdAgent.created_at || bdAgent.last_activity || new Date().toISOString(),
-    last_seen_at: bdAgent.last_activity || new Date().toISOString(),
+    last_seen_at: bdAgent.last_activity || bdAgent.updated_at || new Date().toISOString(),
     version: 1,
     rig,
     role_type: bdAgent.role_type,
@@ -214,19 +252,14 @@ export async function registerAgent(
   try {
     const beadId = toBeadId(name);
     
-    const showResult = await runBdCommand({
-      projectRoot,
-      args: ['agent', 'show', beadId, '--json'],
-    });
+    agentCache.delete(beadId);
+    const existing = await callBdAgentShow(beadId, projectRoot);
 
-    if (showResult.success && !input.forceUpdate) {
+    if (existing && !input.forceUpdate) {
       return invalid(command, 'DUPLICATE_AGENT_ID', 'Agent is already registered. Use --force-update to change display/role.');
     }
 
-    const stateResult = await runBdCommand({
-      projectRoot,
-      args: ['agent', 'state', beadId, 'idle', '--json'],
-    });
+    const stateResult = await writeAgentState(beadId, 'idle', projectRoot, { title: `Agent: ${display}` });
 
     if (!stateResult.success) {
       return invalid(command, 'INTERNAL_ERROR', `Failed to set agent state: ${stateResult.error}`);
@@ -252,14 +285,7 @@ export async function registerAgent(
       return invalid(command, 'INTERNAL_ERROR', `Failed to update agent details: ${updateResult.error}`);
     }
 
-    const flushResult = await runBdCommand({
-      projectRoot,
-      args: ['admin', 'flush'],
-    });
-    if (!flushResult.success) {
-      console.error('Flush failed:', flushResult.error, flushResult.stdout, flushResult.stderr);
-    }
-
+    agentCache.delete(beadId);
     const record = await callBdAgentShow(beadId, projectRoot);
     if (!record) {
       return invalid(command, 'INTERNAL_ERROR', 'Failed to retrieve final agent state.');
@@ -356,10 +382,7 @@ export async function setAgentState(
   try {
     const beadId = toBeadId(name);
     
-    const stateResult = await runBdCommand({
-      projectRoot,
-      args: ['agent', 'state', beadId, state, '--json'],
-    });
+    const stateResult = await writeAgentState(beadId, state, projectRoot, null);
 
     if (!stateResult.success) {
       return invalid(command, 'AGENT_NOT_FOUND', 'Agent is not registered.');
