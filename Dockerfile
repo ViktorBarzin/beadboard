@@ -1,5 +1,21 @@
 # syntax=docker/dockerfile:1.7
 
+# bd (beads CLI). Creating, updating, closing and commenting on beads from the
+# board, and the swarm and mission views, shell out to `bd` (src/lib/bridge.ts);
+# reads go straight to Dolt. Built from source against musl because the release
+# tarballs are glibc builds that need fcntl64, which Alpine's gcompat lacks.
+# Keep BD_VERSION equal to claude-agent-service's: every client of the shared
+# beads database moves together (infra docs/runbooks/beads-bd-upgrade.md).
+FROM golang:1.26.9-alpine3.23 AS bd
+ARG BD_VERSION=1.3.1
+ARG BD_COMMIT=c1c4b642ac1c08d8c828007a1c2f96e47e43ef7c
+RUN apk add --no-cache gcc g++ musl-dev git \
+    && CGO_ENABLED=1 GOBIN=/out go install -tags gms_pure_go \
+       -ldflags "-s -w -X main.Version=${BD_VERSION} -X main.Build=$(echo ${BD_COMMIT} | cut -c1-9) -X main.Commit=${BD_COMMIT}" \
+       "github.com/steveyegge/beads/cmd/bd@v${BD_VERSION}" \
+    && /out/bd version
+
+
 FROM node:24-alpine AS deps
 WORKDIR /app
 ENV NODE_ENV=production
@@ -35,7 +51,16 @@ ENV HOSTNAME=0.0.0.0
 RUN apk add --no-cache curl ca-certificates \
  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
  && addgroup -S nextjs -g 1001 \
- && adduser -S nextjs -u 1001 -G nextjs
+ && adduser -S nextjs -u 1001 -G nextjs \
+ && chown nextjs:nextjs /app
+
+# bd writes a lock file next to .beads (/app/.beads.gate.lock) on every run,
+# hence the /app ownership above. Metrics off: bd 1.3 sends anonymous usage
+# metrics to gastownhall-eventsapi.com by default. BEADS_ACTOR is the audit
+# name for writes made without a name typed into the board.
+COPY --from=bd /out/bd /usr/local/bin/bd
+ENV BD_DISABLE_METRICS=1
+ENV BEADS_ACTOR=beadboard
 
 COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 COPY --from=builder --chown=nextjs:nextjs /app/.next ./.next
