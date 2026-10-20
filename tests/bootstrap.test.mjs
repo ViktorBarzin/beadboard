@@ -22,7 +22,8 @@ test('package.json has next/react/typescript scripts and deps', () => {
   assert.equal(pkg.dependencies.next?.startsWith('15'), true, 'next@15 required');
   assert.equal(pkg.dependencies.react?.startsWith('19'), true, 'react@19 required');
   assert.equal(pkg.dependencies['react-dom']?.startsWith('19'), true, 'react-dom@19 required');
-  assert.equal(pkg.devDependencies.typescript?.length > 0, true, 'typescript required');
+  // A runtime dependency since 03e53da: `next start` compiles next.config.ts.
+  assert.equal(pkg.dependencies.typescript?.length > 0, true, 'typescript required in dependencies');
   assert.equal(typeof pkg.scripts.dev, 'string', 'dev script required');
   assert.equal(typeof pkg.scripts.build, 'string', 'build script required');
   assert.equal(typeof pkg.scripts.start, 'string', 'start script required');
